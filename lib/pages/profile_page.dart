@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
+import '../utils/account_gate.dart';
 import 'device_detail_page.dart';
+import 'settings_page.dart';
+import 'cart_page.dart';
+import 'edit_profile_page.dart'; // ADDED: Import EditProfilePage
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -9,286 +15,315 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
-  // Tab selection (0 = Listings, 1 = Reviews)
-  int _selectedTab = 0;
+class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin {
+  late TabController _tabController;
 
-  void _openDeviceDetail() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const DeviceDetailPage()),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(user),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              _buildAvatar(),
-              const SizedBox(height: 12),
-              _buildNameAndLocation(),
-              const SizedBox(height: 20),
-              _buildStatsCard(),
-              const SizedBox(height: 16),
-              _buildActionButtons(),
-              const SizedBox(height: 24),
-              _buildAboutSection(),
-              const SizedBox(height: 24),
-              _buildTabs(),
-              const SizedBox(height: 16),
-              _buildTabContent(),
-              const SizedBox(height: 30),
-            ],
-          ),
+        child: Column(
+          children: [
+            _buildProfileHeader(user),
+            _buildStatsRow(user),
+            _buildActionButtons(user),
+            _buildAboutSection(),
+            _buildTabBar(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildMyCartTab(user),
+                  _buildRequestsTab(user),
+                  _buildSubmissionsTab(user),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ---------- APP BAR ----------
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(User? user) {
     return AppBar(
       backgroundColor: AppColors.pageBackground,
       elevation: 0,
       automaticallyImplyLeading: false,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 12, top: 4),
-        child: _buildHeaderIconButton(
-          icon: Icons.arrow_back,
-          onTap: () => Navigator.pop(context),
-        ),
-      ),
       title: const Text(
         'Profile',
         style: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
-          color: AppColors.primaryBlue,
+          color: AppColors.textWhite,
+        ),
+      ),
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 12),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xF5132437),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.primaryBlue.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: const Icon(
+              Icons.arrow_back,
+              color: AppColors.textWhite,
+              size: 22,
+            ),
+          ),
         ),
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: _buildHeaderIconButton(
-            icon: Icons.settings_outlined,
+          padding: const EdgeInsets.only(right: 16),
+          child: GestureDetector(
             onTap: () {
-              // TODO: Navigate to SettingsPage when built
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
             },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeaderIconButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xF5132437),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppColors.primaryBlue.withOpacity(0.25),
-            width: 1,
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: AppColors.textWhite,
-          size: 22,
-        ),
-      ),
-    );
-  }
-
-  // ---------- AVATAR ----------
-  Widget _buildAvatar() {
-    return Container(
-      width: 100,
-      height: 100,
-      decoration: const BoxDecoration(
-        color: Colors.blue,
-        shape: BoxShape.circle,
-      ),
-      child: const Center(
-        child: Text(
-          'KA',
-          style: TextStyle(
-            fontSize: 38,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textWhite,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------- NAME + LOCATION ----------
-  Widget _buildNameAndLocation() {
-    return Column(
-      children: [
-        const Text(
-          'Kwame Asante',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textWhite,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(
-              Icons.location_on_outlined,
-              color: AppColors.textMuted,
-              size: 16,
-            ),
-            SizedBox(width: 4),
-            Text(
-              'Accra, Ghana',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textMuted,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xF5132437),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.primaryBlue.withOpacity(0.2),
+                  width: 1,
+                ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ---------- STATS CARD ----------
-  Widget _buildStatsCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xF5132437),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.primaryBlue.withOpacity(0.18),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Swaps
-            Expanded(
-              child: _buildStat(value: '12', label: 'Swaps'),
-            ),
-            _buildStatDivider(),
-            // Listings
-            Expanded(
-              child: _buildStat(value: '5', label: 'Listings'),
-            ),
-            _buildStatDivider(),
-            // Rating
-            Expanded(
-              child: _buildStat(
-                value: '4.8',
-                label: 'Rating',
-                showStar: true,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStat({
-    required String value,
-    required String label,
-    bool showStar = false,
-  }) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
+              child: const Icon(
+                Icons.settings_outlined,
                 color: AppColors.textWhite,
+                size: 20,
               ),
             ),
-            if (showStar) ...[
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileHeader(User? user) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade400, Colors.blue.shade700],
+              ),
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: Center(
+              child: Text(
+                user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textWhite,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            user?.email?.split('@').first ?? 'User',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textWhite,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.location_on_outlined, color: AppColors.textMuted, size: 14),
               const SizedBox(width: 4),
-              const Icon(
-                Icons.star,
-                color: AppColors.warning,
-                size: 22,
+              const Text(
+                'Accra',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
               ),
             ],
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: AppColors.textMuted,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildStatDivider() {
-    return Container(
-      width: 1,
-      height: 40,
-      color: AppColors.primaryBlue.withOpacity(0.25),
-    );
-  }
-
-  // ---------- ACTION BUTTONS ----------
-  Widget _buildActionButtons() {
+  Widget _buildStatsRow(User? user) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // Edit Profile button
+          Expanded(
+            child: _buildStatCard(
+              icon: Icons.shopping_cart_outlined,
+              label: 'In Cart',
+              stream: _getCartCount(user),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              icon: Icons.swap_horiz,
+              label: 'Requests Sent',
+              stream: _getRequestsCount(user),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              icon: Icons.upload_outlined,
+              label: 'Submitted',
+              stream: _getSubmissionsCount(user),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required Stream<int> stream,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xF5132437),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.blue, size: 20),
+          const SizedBox(height: 8),
+          StreamBuilder<int>(
+            stream: stream,
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              return Text(
+                '$count',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textWhite,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Stream<int> _getCartCount(User? user) {
+    if (user == null) return Stream.value(0);
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('cart')
+        .doc('cart')
+        .snapshots()
+        .map((snapshot) {
+      final data = snapshot.data() as Map<String, dynamic>? ?? {};
+      final items = data['items'] as List<dynamic>? ?? [];
+      return items.length;
+    });
+  }
+
+  Stream<int> _getRequestsCount(User? user) {
+    if (user == null) return Stream.value(0);
+    return FirebaseFirestore.instance
+        .collection('swapRequests')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Stream<int> _getSubmissionsCount(User? user) {
+    if (user == null) return Stream.value(0);
+    return FirebaseFirestore.instance
+        .collection('deviceSubmissions')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  // CHANGED: Wired Edit Profile button to navigate to EditProfilePage
+  Widget _buildActionButtons(User? user) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
           Expanded(
             child: GestureDetector(
               onTap: () {
-                // TODO: Navigate to EditProfilePage when built
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EditProfilePage()),
+                );
               },
               child: Container(
-                height: 50,
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.blue,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.blue, width: 1),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(
-                      Icons.edit_outlined,
-                      color: AppColors.textWhite,
-                      size: 18,
-                    ),
-                    SizedBox(width: 8),
+                  children: [
+                    Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
+                    SizedBox(width: 6),
                     Text(
                       'Edit Profile',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textWhite,
                       ),
@@ -299,27 +334,21 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(width: 12),
-          // Share button
           GestureDetector(
             onTap: () {
-              // TODO: Share profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CartPage()),
+              );
             },
             child: Container(
-              width: 50,
-              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: const Color(0xF5132437),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.primaryBlue.withOpacity(0.25),
-                  width: 1,
-                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primaryBlue.withOpacity(0.3)),
               ),
-              child: const Icon(
-                Icons.share_outlined,
-                color: AppColors.textWhite,
-                size: 22,
-              ),
+              child: const Icon(Icons.shopping_cart_outlined, color: AppColors.textWhite, size: 20),
             ),
           ),
         ],
@@ -327,28 +356,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ---------- ABOUT SECTION ----------
   Widget _buildAboutSection() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
+        children: [
+          const Text(
             'About',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
               color: AppColors.textMuted,
             ),
           ),
-          SizedBox(height: 6),
-          Text(
-            'Tech enthusiast based in Accra. Love trading phones and laptops. Quick responses guaranteed.',
+          const SizedBox(height: 6),
+          const Text(
+            'Tech enthusiast looking to swap and upgrade devices.',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: AppColors.textWhite,
-              height: 1.5,
+              height: 1.4,
             ),
           ),
         ],
@@ -356,210 +384,464 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ---------- TABS ----------
-  Widget _buildTabs() {
+  Widget _buildTabBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _buildTab(label: 'Listings (3)', index: 0),
-              const SizedBox(width: 30),
-              _buildTab(label: 'Reviews (12)', index: 1),
-            ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: Colors.blue,
+        unselectedLabelColor: AppColors.textMuted,
+        indicatorColor: Colors.blue,
+        indicatorWeight: 3,
+        indicatorSize: TabBarIndicatorSize.tab,
+        tabs: [
+          Tab(
+            child: StreamBuilder<int>(
+              stream: _getCartCount(FirebaseAuth.instance.currentUser),
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Text('My Cart ($count)');
+              },
+            ),
           ),
-          const SizedBox(height: 8),
-          // Divider line
-          Container(
-            height: 1,
-            color: AppColors.border.withOpacity(0.5),
+          Tab(
+            child: StreamBuilder<int>(
+              stream: _getRequestsCount(FirebaseAuth.instance.currentUser),
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Text('Requests ($count)');
+              },
+            ),
+          ),
+          Tab(
+            child: StreamBuilder<int>(
+              stream: _getSubmissionsCount(FirebaseAuth.instance.currentUser),
+              builder: (context, snapshot) {
+                final count = snapshot.data ?? 0;
+                return Text('Submissions ($count)');
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTab({required String label, required int index}) {
-    final isActive = _selectedTab == index;
+  Widget _buildMyCartTab(User? user) {
+    if (user == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shopping_cart_outlined, color: AppColors.textMuted, size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Please log in',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('cart')
+          .doc('cart')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final cartData = snapshot.data?.data() as Map<String, dynamic>? ?? {};
+        final cartItems = cartData['items'] as List<dynamic>? ?? [];
+
+        if (cartItems.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shopping_cart_outlined, color: AppColors.textMuted, size: 48),
+                const SizedBox(height: 12),
+                const Text(
+                  'No items in cart',
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: cartItems.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final item = cartItems[index] as Map<String, dynamic>;
+            return _buildCartItemFullCard(item);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCartItemFullCard(Map<String, dynamic> item) {
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedTab = index;
-        });
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DeviceDetailPage(deviceId: item['deviceId'] ?? ''),
+          ),
+        );
       },
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w500,
-                color: isActive ? Colors.blue : AppColors.textMuted,
-              ),
-            ),
-          ),
-          // Active underline (positioned just below the text)
-          Container(
-            height: 3,
-            width: 60,
-            color: isActive ? Colors.blue : Colors.transparent,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------- TAB CONTENT ----------
-  Widget _buildTabContent() {
-    if (_selectedTab == 0) {
-      return _buildListingsTab();
-    } else {
-      return _buildReviewsTab();
-    }
-  }
-
-  Widget _buildListingsTab() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          _buildListingItem(
-            title: 'iPhone 13 Pro Max',
-            subtitle: '256GB • Like New',
-            icon: Icons.phone_iphone,
-          ),
-          const SizedBox(height: 10),
-          _buildListingItem(
-            title: 'iPhone 14 Max',
-            subtitle: '256GB • Like New',
-            icon: Icons.laptop_rounded,
-          ),
-          const SizedBox(height: 10),
-          _buildListingItem(
-            title: 'AirPods Pro 2',
-            subtitle: 'New • Sealed',
-            icon: Icons.headphones_outlined,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListingItem({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    return GestureDetector(
-      onTap: _openDeviceDetail,
       child: Container(
-        height: 90,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: const Color(0xF5132437),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.primaryBlue.withOpacity(0.21),
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2)),
         ),
         child: Row(
           children: [
-            // Icon container
             Container(
-              width: 60,
-              height: 60,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
-                color: AppColors.pageBackground,
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFF1E3A5F),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                icon,
+                _getDeviceIcon(item['deviceName'] ?? ''),
                 color: Colors.blue,
-                size: 30,
+                size: 36,
               ),
             ),
-            const SizedBox(width: 12),
-            // Title + subtitle
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    title,
+                    item['deviceName'] ?? 'Unknown',
                     style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w500,
                       color: AppColors.textWhite,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    subtitle,
+                    '${item['brand'] ?? ''} • ${item['storage'] ?? 'N/A'}',
                     style: const TextStyle(
-                      fontSize: 13,
                       color: AppColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      item['condition'] ?? 'N/A',
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.textMuted,
-              size: 24,
-            ),
+            const Icon(Icons.chevron_right, color: AppColors.textMuted),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildReviewsTab() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xF5132437),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.primaryBlue.withOpacity(0.21),
-            width: 1,
-          ),
-        ),
+  Widget _buildRequestsTab(User? user) {
+    if (user == null) {
+      return Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.star_border,
-              color: AppColors.warning,
-              size: 40,
-            ),
-            const SizedBox(height: 10),
+            Icon(Icons.swap_horiz, color: AppColors.textMuted, size: 48),
+            const SizedBox(height: 12),
             const Text(
-              'No reviews yet',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textWhite,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Reviews will appear here after your swaps are completed.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textMuted,
-              ),
+              'Please log in',
+              style: TextStyle(color: AppColors.textMuted),
             ),
           ],
         ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('swapRequests')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.swap_horiz, color: AppColors.textMuted, size: 48),
+                const SizedBox(height: 12),
+                const Text(
+                  'No requests yet',
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final requests = snapshot.data!.docs;
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: requests.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final requestData = requests[index].data() as Map<String, dynamic>;
+            return _buildRequestFullCard(requestData);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRequestFullCard(Map<String, dynamic> data) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xF5132437),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  data['deviceName'] ?? 'Unknown',
+                  style: const TextStyle(
+                    color: AppColors.textWhite,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(data['status']).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  (data['status'] ?? 'pending').toUpperCase(),
+                  style: TextStyle(
+                    color: _getStatusColor(data['status']),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Your device: ${data['userDeviceName'] ?? 'Unknown'}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Condition: ${data['userDeviceCondition'] ?? 'N/A'}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildSubmissionsTab(User? user) {
+    if (user == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.upload_outlined, color: AppColors.textMuted, size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Please log in',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('deviceSubmissions')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.upload_outlined, color: AppColors.textMuted, size: 48),
+                const SizedBox(height: 12),
+                const Text(
+                  'No submissions yet',
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final submissions = snapshot.data!.docs;
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: submissions.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final submissionData = submissions[index].data() as Map<String, dynamic>;
+            return _buildSubmissionFullCard(submissionData);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSubmissionFullCard(Map<String, dynamic> data) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xF5132437),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primaryBlue.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  data['deviceName'] ?? 'Unknown',
+                  style: const TextStyle(
+                    color: AppColors.textWhite,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getSubmissionStatusColor(data['status']).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  (data['status'] ?? 'pending_review').replaceAll('_', ' ').toUpperCase(),
+                  style: TextStyle(
+                    color: _getSubmissionStatusColor(data['status']),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${data['brand'] ?? 'Unknown'} • ${data['storage'] ?? 'N/A'}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Condition: ${data['condition'] ?? 'N/A'}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Looking for: ${data['lookingFor'] ?? 'Open to offers'}',
+            style: const TextStyle(
+              color: Colors.blue,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getDeviceIcon(String deviceName) {
+    final name = deviceName.toLowerCase();
+    if (name.contains('macbook') || name.contains('laptop') || name.contains('dell')) {
+      return Icons.laptop_rounded;
+    } else if (name.contains('ipad') || name.contains('tablet')) {
+      return Icons.tablet_outlined;
+    }
+    return Icons.phone_iphone;
+  }
+
+  Color _getStatusColor(dynamic status) {
+    switch (status) {
+      case 'accepted':
+        return Colors.green;
+      case 'declined':
+        return AppColors.danger;
+      case 'pending':
+      default:
+        return Colors.orange;
+    }
+  }
+
+  Color _getSubmissionStatusColor(dynamic status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return AppColors.danger;
+      case 'pending_review':
+      default:
+        return Colors.orange;
+    }
   }
 }

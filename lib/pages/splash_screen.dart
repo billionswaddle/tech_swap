@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../theme/app_colors.dart';
-import 'login_page.dart';
+import 'home_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -42,22 +42,21 @@ class _SplashScreenState extends State<SplashScreen> {
         _progress = (currentTick / tickCount).clamp(0.0, 1.0);
       });
 
-      // When progress reaches 100%, navigate to LoginPage
+      // When progress reaches 100%, navigate to HomePage
       if (_progress >= 1.0) {
         timer.cancel();
-        _navigateToLogin();
+        _navigateToHome();
       }
     });
   }
 
-  void _navigateToLogin() {
-    // TODO: Later, check if user is signed in
-    // If signed in → go to HomePage
-    // If not → go to LoginPage
-
+  void _navigateToHome() {
+    // Browsing is fully open — no account needed to reach HomePage.
+    // Login/signup only kicks in later, when a gated action (Add to
+    // Cart, Send to Admin, tapping the account icon) is triggered.
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+      MaterialPageRoute(builder: (_) => const HomePage()),
     );
   }
 

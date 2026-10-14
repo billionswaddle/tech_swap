@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import 'home_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -60,14 +61,50 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // Handle sign in
-  void _handleSignIn() {
-    if (_formKey.currentState!.validate()) {
-      // Navigate to HomePage
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+  void _handleSignIn() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+
+      // Navigate back with success result if we were pushed by AccountGate
+      if (navigator.canPop()) {
+        navigator.pop(true);
+      } else {
+        // Fallback for direct entry
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = 'Login failed. Please try again.';
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
+        message = 'Incorrect email or password.';
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.danger),
       );
     }
+  }
+
+  // Handle Google sign in
+  void _handleGoogleSignIn() {
+    // TODO: Implement actual Google sign-in logic (firebase_auth + google_sign_in)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Google Sign-In coming soon!'),
+        backgroundColor: AppColors.info,
+      ),
+    );
   }
 
   // Dismiss keyboard
@@ -335,9 +372,7 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       height: 50,
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          // TODO: Google sign-in
-                        },
+                        onPressed: _handleGoogleSignIn,
                         icon: const Icon(
                           Icons.g_mobiledata,
                           size: 28,
@@ -352,7 +387,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: AppColors.primaryBlue.withOpacity(0.08),
+                          backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.08),
                           side: const BorderSide(
                             color: AppColors.border,
                             width: 2,
@@ -369,13 +404,26 @@ class _LoginPageState extends State<LoginPage> {
                     // Sign up link
                     Center(
                       child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
+                        onTap: () async {
+                          final navigator = Navigator.of(context);
+
+                          // Wait for result from SignupPage
+                          final bool? signupSuccess = await navigator.push<bool>(
                             MaterialPageRoute(
                               builder: (_) => const SignupPage(),
                             ),
                           );
+
+                          // If signup was successful, close this Login page as well
+                          if (signupSuccess == true && mounted) {
+                            if (navigator.canPop()) {
+                              navigator.pop(true);
+                            } else {
+                              navigator.pushReplacement(
+                                MaterialPageRoute(builder: (_) => const HomePage()),
+                              );
+                            }
+                          }
                         },
                         child: RichText(
                           text: const TextSpan(

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
-import 'login_page.dart';
 import 'home_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -60,7 +61,8 @@ class _SignupPageState extends State<SignupPage> {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter your email';
     }
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    // Cleaned up RegExp: removed redundant escape for '.'
+    final emailRegex = RegExp(r'^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(value.trim())) {
       return 'Please enter a valid email address';
     }
@@ -91,11 +93,46 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   // Handle Create Account
-  void _handleCreateAccount() {
-    if (_formKey.currentState!.validate()) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+  void _handleCreateAccount() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      // Save extra profile info (name, location) to Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(credential.user!.uid)
+          .set({
+        'fullName': _fullNameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'location': _locationController.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+
+      if (navigator.canPop()) {
+        navigator.pop(true);
+      } else {
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = 'Sign up failed. Please try again.';
+      if (e.code == 'email-already-in-use') {
+        message = 'This email is already registered.';
+      } else if (e.code == 'weak-password') {
+        message = 'Password is too weak.';
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: AppColors.danger),
       );
     }
   }
@@ -161,7 +198,10 @@ class _SignupPageState extends State<SignupPage> {
                     height: 50,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        // TODO: Google signup
+                        // TODO: Implement Google signup
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Google Sign-In coming soon!')),
+                        );
                       },
                       icon: const Icon(
                         Icons.g_mobiledata,
@@ -288,14 +328,11 @@ class _SignupPageState extends State<SignupPage> {
 
                   const SizedBox(height: 16),
 
-                  // Already have account
+                  // Already have account — pop back to the LoginPage
                   Center(
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                        );
+                        Navigator.pop(context);
                       },
                       child: const Text(
                         'Already have an account?',
@@ -453,6 +490,7 @@ class _SignupPageState extends State<SignupPage> {
           color: AppColors.primaryBlue,
           size: 24,
         ),
+        // ... (rest of the file above)
         suffixIcon: IconButton(
           icon: Icon(
             _passwordVisibility

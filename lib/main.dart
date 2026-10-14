@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
-import 'theme/app_colors.dart';
-import 'pages/splash_screen.dart';  // ← MUST BE splash_screen.dart
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'theme/app_theme.dart';
+import 'pages/splash_screen.dart';
 
-void main() {
+// Global notifier — lets any page toggle the theme
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -11,16 +20,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tech Swap',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: AppColors.pageBackground,
-        primaryColor: AppColors.primaryBlue,
-        fontFamily: 'Roboto',
-        brightness: Brightness.dark,
-      ),
-      home: const SplashScreen(),  // ← MUST BE SplashScreen()
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (_, mode, __) {
+        return MaterialApp(
+          title: 'Tech Swap',
+          debugShowCheckedModeBanner: false,
+          theme:      AppTheme.light,
+          darkTheme:  AppTheme.dark,
+          themeMode:  mode,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

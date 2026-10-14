@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "586456905152",
+    "project_id": "tech-swap0505",
+    "storage_bucket": "tech-swap0505.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:586456905152:android:0642bf9709c5682e334425",
+        "android_client_info": {
+          "package_name": "com.billionswaddle0.techswap.tech_swap"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "586456905152-j8um48jdmieebq7vnss2qq01teb38m3c.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYuqu2bG8ldcOTvtge0_4u2_ZlicGBFrQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "586456905152-j8um48jdmieebq7vnss2qq01teb38m3c.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
